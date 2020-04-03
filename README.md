@@ -5,7 +5,9 @@ PySTARE exposes the STARE library to python.
 
 
 ## Requirements:
-pystare requires STARE to be installed i.e. expects libSTARE.a in /usr/local/lib/ and STARE.h in /usr/local/include/
+
+pystare requires STARE to be installed i.e. expects
+libSTARE.a in /usr/local/lib/ and STARE.h in /usr/local/include/
 
     git clone https://github.com/michaelleerilee/STARE
     cd STARE
@@ -13,7 +15,18 @@ pystare requires STARE to be installed i.e. expects libSTARE.a in /usr/local/lib
     make
     make install
 
-If no rights for make install are present, the location of libSTARE.a and STARE.h can be specified in setup.py
+Alternatively, you can build and install like this
+
+    git clone https://github.com/michaelleerilee/STARE
+    cd STARE
+    mkdir build			# Build the code here, separeate from the source
+    mkdir local			# Install the code here, within the STARE tree
+    cd cmake .. -DCMAKE_INSTALL_PREFIX=local
+    make
+    make install
+
+If no rights for make install are present, the location of libSTARE.a
+and STARE.h can be specified in setup.py
 
     library_dirs=[],       # Location of libSTARE.a
     include_dirs=[],       # Location of STARE.h
@@ -23,17 +36,20 @@ or by shell environment variables (e.g. in bash):
     export STARE_INCLUDE_DIR=/path/to/directory-containing-stare.h/
     export STARE_LIB_DIR=/path/to/directory-containing-stare.a/
 
-It may be necessary to set PYTHON_INCLUDE_DIRS, if, for example, numpy headers cannot be found.
+It may be necessary to set PYTHON_INCLUDE_DIRS, if, for example, numpy
+headers cannot be found. This is the case on OSX.
 
-## Installation
+You also need to install SWIG. On OSX 'brew install swig'.
+
+## Installation (using virtualenvwrapper[1])
 
     mkvirtualenv --python=/usr/bin/python3 $PROJECT_ENV    
     pip3 install git+git://github.com/SpatioTemporal/pystare.git
 
 ### Or from local copy
 
-    git clone https://github.com/SpatioTemporal/starepandas $pystare
-    pip3 install --editable $pystare
+    git clone https://github.com/SpatioTemporal/pystare
+    pip3 install --editable <pystare path>
     
 ### Manual build
     
@@ -98,7 +114,6 @@ Examples are provided in the examples directory and may be run as follows.
     index = pystare.from_utc(datetime.astype(numpy.int64), 27)
     print([hex(i) for i in index])
 
-    
+### References
 
-
-
+[1] https://virtualenvwrapper.readthedocs.io/en/latest/design.html
