@@ -5,11 +5,10 @@ PySTARE exposes the STARE library to python.
 
 
 ## Requirements:
-
 pystare requires STARE to be installed i.e. expects
 libSTARE.a in /usr/local/lib/ and STARE.h in /usr/local/include/
 
-    git clone https://github.com/michaelleerilee/STARE
+    git clone https://github.com/SpatioTemporal/STARE
     cd STARE
     cmake .
     make
@@ -41,6 +40,8 @@ headers cannot be found. This is the case on OSX.
 
 You also need to install SWIG. On OSX 'brew install swig'.
 
+STARE version 0.16.0 or greater is required.
+
 ## Installation (using virtualenvwrapper[1])
 
     mkvirtualenv --python=/usr/bin/python3 $PROJECT_ENV    
@@ -48,19 +49,19 @@ You also need to install SWIG. On OSX 'brew install swig'.
 
 ### Or from local copy
 
-    git clone https://github.com/SpatioTemporal/pystare
-    pip3 install --editable <pystare path>
+    git clone https://github.com/SpatioTemporal/pystare $pystare
+    pip3 install --editable $pystare
     
 ### Manual build
     
     python3 setup.py build_ext --inplace
-    python3 setup.py --build
     python3 setup.py build --force
-
-### To test
-
+    
+    
+## Tests
     python3 setup.py test
-
+    
+    
 ## Usage
 
 Once pystare is installed or made available via PYTHONPATH one may use it as described in the following sections.

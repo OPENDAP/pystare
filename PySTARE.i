@@ -354,7 +354,7 @@
 {
   $result = (PyObject*)out$argnum;
 }
-
+  
 /*
  %typemap(argout) 
  (double* in_array1, int length1, double* in_array2, int length2, int resolution, int64_t* out_array1, int out_length1, int64_t* out_array2, int out_length2)
@@ -364,6 +364,17 @@
 */
 
 /* Applying the typemaps */
+
+
+
+%apply (double * INPLACE_ARRAY2, int DIM1, int DIM2) {
+    (double* lat, int lalen1, int lalen2),
+    (double* lon, int lolen1, int lolen2)
+}
+
+%apply (int64_t * INPLACE_ARRAY2, int DIM1, int DIM2) {
+    (int64_t* indices, int len1, int len2)
+}
 
 %apply (double * IN_ARRAY1, int DIM1) {
     (double* lat, int len_lat),
@@ -443,6 +454,9 @@
 
 %pythoncode %{
 import numpy
+from pkg_resources import get_distribution
+  
+__version__ = get_distribution('pystare').version
 
 class PyStareError(Exception):
     pass
@@ -451,14 +465,9 @@ class PyStareArrayBoundsExceeded(Exception):
     pass
 
 def to_neighbors(indices):
-    out_length = 12*len(indices)
-    len_ri = 0
-    range_indices = numpy.full([out_length],-1,dtype=numpy.int64)
-    _to_neighbors(indices,range_indices)
-    endarg = 0
-    while ( endarg < out_length ) and (range_indices[endarg] > 0 ) :
-        endarg = endarg + 1
-    range_indices = range_indices[:endarg]
+    result = _to_neighbors(indices)
+    range_indices = numpy.full([result.get_size_as_values()],-1,dtype=numpy.int64)
+    result.copy_as_values(range_indices)
     return range_indices
 
 def to_compressed_range(indices):
@@ -473,55 +482,65 @@ def to_compressed_range(indices):
     range_indices = range_indices[:endarg]
     return range_indices
     
-def expand_intervals(intervals, resolution, result_size_limit=1000):
-    result      = numpy.full([result_size_limit],-1,dtype=numpy.int64)
-    result_size = numpy.full([1],-1,dtype=numpy.int64)
-    _expand_intervals(intervals,resolution,result,result_size)
-    result = result[:result_size[0]]
-    return result
+def expand_intervals(intervals, resolution, multi_resolution=False):
+    result = _expand_intervals(intervals,resolution,multi_resolution)
+    expanded_intervals = numpy.zeros([result.get_size_as_intervals()],dtype=numpy.int64)
+    result.copy_as_values(expanded_intervals)
+    return expanded_intervals
+
+#    result      = numpy.full([result_size_limit],-1,dtype=numpy.int64)
+#    result_size = numpy.full([1],-1,dtype=numpy.int64)
+#    _expand_intervals(intervals,resolution,result,result_size)
+#    result = result[:result_size[0]]
+#    return result
 
 def adapt_resolution_to_proximity(indices):
     result = numpy.copy(indices)
     _adapt_resolution_to_proximity(indices,result)
     return result
     
-def to_hull_range(indices, resolution, range_size_limit=1000):
-    out_length = range_size_limit
-    range_indices = numpy.full([out_length], -1, dtype=numpy.int64)
-    result_size = numpy.full([1], -1, dtype=numpy.int64)
-    _to_hull_range(indices, resolution, range_indices,result_size)
-    range_indices = range_indices[:result_size[0]]
+def to_hull_range(indices, resolution):
+    result = _to_hull_range(indices, resolution)
+    range_indices = numpy.full([result.get_size_as_intervals()], -1, dtype=numpy.int64)
+    result.copy_as_intervals(range_indices)
+    return range_indices
+    
+def from_latlon2D(lat, lon, resolution=27, adapt_resolution=False):
+    if adapt_resolution:
+        resolution = 27
+    indices = numpy.full(lon.shape, -1, dtype=numpy.int64)
+    _from_latlon2D(lat, lon, indices, 27, adapt_resolution)
+    return indices    
+
+def to_hull_range_from_latlon(lat, lon, resolution):
+    result = _to_hull_range_from_latlon(lat, lon, resolution)
+    range_indices = numpy.full([result.get_size_as_intervals()], -1, dtype=numpy.int64)
+    result.copy_as_intervals(range_indices)
     return range_indices
 
-def to_hull_range_from_latlon(lat, lon, resolution, range_size_limit=1000):
-    out_length = range_size_limit
-    range_indices = numpy.full([out_length], -1, dtype=numpy.int64)
-    result_size = numpy.full([1], -1, dtype=numpy.int64)
-    _to_hull_range_from_latlon(lat, lon, resolution, range_indices, result_size)
-    range_indices = range_indices[:result_size[0]]
+def to_nonconvex_hull_range_from_latlon(lat, lon, resolution):
+    result        = _to_nonconvex_hull_range_from_latlon(lat,lon,resolution);
+    out_length    = result.get_size_as_intervals()
+    range_indices = numpy.zeros([out_length],dtype=numpy.int64)
+    result.copy_as_intervals(range_indices)
     return range_indices
-
-# def to_circular_cover(lat, lon, radius, resolution, range_size_limit=1000):
-#     out_length = range_size_limit
-#     range_indices = numpy.full([out_length],-1,dtype=numpy.int64)
-#     result_size = numpy.full([1],-1,dtype=numpy.int64)
-#     _to_circular_cover(lat,lon,radius,resolution,range_indices,result_size)
-#     range_indices = range_indices[:result_size[0]]
-#     return range_indices
 
 def to_circular_cover(lat, lon, radius, resolution):
-    result = _to_circular_cover1(lat, lon, radius, resolution)
+    result = _to_circular_cover(lat, lon, radius, resolution)
     out_length = result.get_size_as_intervals()
     range_indices = numpy.zeros([out_length],dtype=numpy.int64)
     result.copy_as_intervals(range_indices);
     return range_indices
 
-def to_box_cover_from_latlon(lat, lon, resolution, range_size_limit=1000):
-    out_length = range_size_limit
-    range_indices = numpy.full([out_length], -1, dtype=numpy.int64)
-    result_size = numpy.full([1], -1, dtype=numpy.int64)
-    _to_box_cover_from_latlon(lat, lon, resolution, range_indices, result_size)
-    range_indices = range_indices[:result_size[0]]
+def circular_cover_from(index,radius,resolution):
+    latsv,lonsv,lat_center,lon_center = to_vertices_latlon([index])
+    return to_circular_cover(lat_center[0],lon_center[0],radius,resolution)
+
+def to_box_cover_from_latlon(lat, lon, resolution):
+    "Construct numpy array of intervals covering a 4-corner box specified using lat and lon."
+    result = _to_box_cover_from_latlon(lat, lon, resolution)
+    range_indices = numpy.zeros([result.get_size_as_intervals()],dtype=numpy.int64)
+    result.copy_as_intervals(range_indices)
     return range_indices
       
 def to_vertices_latlon(indices):
@@ -554,18 +573,28 @@ def to_vertices_latlon(indices):
 	return latsv,lonsv,lat_center,lon_center
     
 def cmp_spatial(indices1, indices2):
-	out_length = len(indices1)*len(indices2)
-	cmp = numpy.zeros([out_length],dtype=numpy.int64)
-	_cmp_spatial(indices1,indices2,cmp)
-	return cmp
+    """
+        calls cmp_spatial returning an element of {-1,0,1} depending on which, if either, element contains the other. Returns an array of x in {-1,0,1}, but cmp_spatial calculates all pairs (like an exterior product).
+    """
+    out_length = len(indices1)*len(indices2)
+    cmp = numpy.zeros([out_length],dtype=numpy.int64)
+    _cmp_spatial(indices1,indices2,cmp)
+    return cmp
 	    
 def cmp_temporal(indices1, indices2):
 	out_length = len(indices1)*len(indices2)
 	cmp = numpy.zeros([out_length],dtype=numpy.int64)
 	_cmp_temporal(indices1,indices2,cmp)
 	return cmp   
+
+def intersects(indices1, indices2, method=0):
+    # method = {'skiplist': 0, 'binsearch': 1, 'nn': 2}[method]
+    return _intersects(indices1, indices2, method).astype(numpy.bool)
 	
 def intersect(indices1, indices2, multiresolution=True):
+    """
+     constructs SpatialRange objects from its arguments and then returns the intersection of those. Returns an array of spatial index values.
+    """
     out_length = 2*max(len(indices1), len(indices2))
     intersected = numpy.full([out_length], -1, dtype=numpy.int64)
     leni = 0
@@ -591,9 +620,16 @@ def shiftarg_lat(lat):
     else:
         return lat
         
-def spatial_resolution(km):
-    return 10-np.log2(km/10)
+def spatial_resolution_from_km(km,return_int=True):
+    if return_int:
+        return 10-numpy.log2(km/10)
+    else:
+        return int(10-numpy.log2(km/10))
 
+def spatial_scale_km(resolution):
+    "A rough estimate for the length scale at level."
+    return 10*(2.0**(10-resolution))
+	  
 def triangulate(lats,lons):
     "Help prepare data for matplotlib.tri.Triangulate."
     intmat=[]
@@ -621,77 +657,33 @@ def triangulate_indices(indices):
     return lons,lats,intmat
 
 
-# Shapely integration 
+spatial_resolution_mask =  31
+spatial_location_mask   = ~31
 
-import shapely.geometry
+# TODO Replace hardcoded below with the variables above.
+	  
+def spatial_increment_from_level(level):
+    if level < 0 or level > 27:
+        raise PyStareError()
+    return 1 << (59-2*level)
 
-def from_shapely(geom, resolution):
-    if geom.geom_type == 'Point':
-        return from_point(geom, resolution)
-    if geom.geom_type == 'Polygon':
-        return from_polygon(geom)
+def spatial_resolution(sid):
+    return sid & 31 # levelMaskSciDB
 
-def from_point(point, resolution):
-    lat = point.y
-    lon = point.x
-    index_value = from_latlon([lat], [lon], resolution)
-    return index_value
+def spatial_terminator_mask(level):
+    return ((1 << (1+ 58-2*level))-1)
 
-def from_polygon(polygon, resolution=-1, range_size_limit=1000):
-    latlon = polygon.exterior.coords.xy
-    lon = latlon[0]
-    lat = latlon[1]
-    range_indices = to_hull_range_from_latlon(lat, lon, resolution, range_size_limit)
-    return range_indices
-    
-def from_multipolygon(multipolygon, resolution=-1, range_size_limit=1000):
-    range_indices = []
-    for polygon in multipolygon.geoms:
-        range_indices += list(from_polygon(polygon, resolution, range_size_limit))
-    return range_indices
-    
-# Geopandas integration
-import geopandas
-    
-def from_geopandas(gdf, resolution=-1, range_size_limit=1000):
-    # Test if all geometries are Points or Polygons
-    if set(gdf.geom_type) == {'Point'}:
-        lat = gdf.geometry.y
-        lon = gdf.geometry.x
-        return from_latlon(lat, lon, resolution)
-    if not set(gdf.geom_type) - {'Polygon', 'MultiPolygon'}:
-        index_values = []
-        for polygon in gdf.geometry:
-            if polygon.type == 'Polygon':
-                index_values.append(from_polygon(polygon, resolution, range_size_limit))
-            else:
-                index_values.append(from_multipolygon(polygon, resolution, range_size_limit))
-        return index_values        
-    else:
-        print('inhomogenous geometry types')
-        return 1
+def spatial_terminator(sid):
+    return sid | ((1 << (1+ 58-2*(sid & 31)))-1)
 
-def to_trixels_series(series):
-    trixels_series = []
-    for index_values in series:
-        trixels = to_trixels(index_values)
-        trixels = shapely.geometry.MultiPolygon(trixels)
-        trixels_series.append(trixels)
-    return trixels_series
-    
-def to_trixels(indices):
-    latv, lonv = _to_vertices_latlon(indices)
-    for i in range(len(latv)):
-        latv[i] = shiftarg_lat(latv[i])
-        lonv[i] = shiftarg_lon(lonv[i])
-    i = 0    
-    trixels = []
-    while i < len(latv):
-        geom = shapely.geometry.Polygon([[lonv[i], latv[i]], [lonv[i+1], latv[i+1]], [lonv[i+2], latv[i+2]]])
-        trixels.append(geom)
-        i += 4
-    return trixels
+def spatial_coerce_resolution(sid,resolution):
+    return (sid & ~31) | resolution
 
+def spatial_clear_to_resolution(sid):
+    resolution = sid & 31
+    mask =  spatial_terminator_mask(spatial_resolution(sid))
+    return (sid & ~mask) + resolution
+	 
 %}   
    
 %include "PySTARE.h"

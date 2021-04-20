@@ -52,29 +52,52 @@ class MainTest(unittest.TestCase):
         numpy.testing.assert_allclose(area, expected)
     
     def test__tocompressedrange(self):
-        indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
+        
+        # indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
+        # expected = numpy.array([3643626718498217164, 4151504989081014892, 4161865161846704588])
+
+        indices  = numpy.array([0x399d1bcabd6f926c,0x39c1ea506ef249cc,0x3290c3321a355ccc])
+        expected = numpy.array([0x3290c3300000000c,0x399d1bc80000000c,0x39c1ea500000000c])
+
         compressed = numpy.array([0, 0, 0], dtype=numpy.int64)
         pystare._to_compressed_range(indices, compressed)
-        expected = numpy.array([3643626718498217164, 4151504989081014892, 4161865161846704588])
+            
         numpy.testing.assert_array_equal(compressed, expected)
     
     def test_tocompressedrange(self):
-        indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
+
+        # indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
+        # expected = numpy.array([3643626718498217164, 4151504989081014892, 4161865161846704588])
+
+        indices  = numpy.array([0x399d1bcabd6f926c,0x39c1ea506ef249cc,0x3290c3321a355ccc])
+        expected = numpy.array([0x3290c3300000000c,0x399d1bc80000000c,0x39c1ea500000000c])
+        
         compressed = pystare.to_compressed_range(indices)
-        expected = numpy.array([3643626718498217164, 4151504989081014892, 4161865161846704588])
+
+        # print('')
+        # print('indices','compressed','expected')
+        # for i in [0,1,2]:
+        #     print(i,hex(indices[i]),hex(compressed[i]),hex(expected[i]))
+        # print('\nindices')
+        # for i in [0,1,2]:
+        #     print(hex(indices[i]))
+        # print('\ncompressed')
+        # for i in [0,1,2]:
+        #     print(hex(compressed[i]))
+        
         numpy.testing.assert_array_equal(compressed, expected)
 
     def test__tohullrange(self):
         indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
-        hull_indices = numpy.zeros([1000], dtype=numpy.int64)
-        result_size = numpy.zeros([1], dtype=numpy.int)
-        pystare._to_hull_range(indices, 8, hull_indices, result_size)
-        hull_indices = hull_indices[0:result_size[0]]
+        result_size = numpy.zeros([1], dtype=numpy.int64)
+        result = pystare._to_hull_range(indices, 8)
+        hull_indices = numpy.zeros([result.get_size_as_intervals()], dtype=numpy.int64)
+        result.copy_as_intervals(hull_indices)
         self.assertEqual(hull_indices.size, 901)
         
     def test_tohullrange(self):
         indices = numpy.array([4151504989081014892, 4161865161846704588, 3643626718498217164])
-        hull_indices = pystare.to_hull_range(indices, 8, 2000)
+        hull_indices = pystare.to_hull_range(indices, 8)
         self.assertEqual(hull_indices.size, 901)
     
     def test__cmpspatial(self):
@@ -101,7 +124,9 @@ class MainTest(unittest.TestCase):
         expanded_len       = numpy.zeros([1],dtype=numpy.int64)
         intervals_len = len(src)
         resolution = -1
-        pystare._expand_intervals(src, resolution, expanded, expanded_len)
+        result = pystare._expand_intervals(src, resolution, multi_resolution=False)
+        expanded_len = result.get_size_as_values()
+        result.copy_as_values(expanded)
         self.assertEqual(expanded_len, 74)
         error_found = False
         for i in range(len(expanded)):
@@ -114,7 +139,7 @@ class MainTest(unittest.TestCase):
         src = numpy.array(intervals.src,dtype=numpy.int64)
         expected_expanded = numpy.array(intervals.expanded_src,dtype=numpy.int64)
         resolution = -1
-        expanded = pystare.expand_intervals(src, resolution)        
+        expanded = pystare.expand_intervals(src, resolution, multi_resolution=False)        
         error_found = False
         for i in range(len(expanded)):
             if(expanded[i] != expected_expanded[i]):
@@ -130,3 +155,11 @@ class MainTest(unittest.TestCase):
         cover = pystare.to_circular_cover(1.5,0.5,0.25,14)
         for i in list(expected):
             self.assertEqual(i[1], cover[i[0]])
+
+    def test_spatial_resolution_from_km(self):
+        self.assertEqual(10,int(pystare.spatial_resolution_from_km(10)))
+
+    def test_spatial_resolution(self):
+        self.assertEqual(11,int(pystare.spatial_resolution(11)))
+        self.assertEqual(15,int(pystare.spatial_resolution(15)))
+        
